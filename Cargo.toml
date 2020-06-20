@@ -1,12 +1,14 @@
 [package]
 name = "mih-rs"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Shunsuke Kanda (kampersanda) <shnsk.knd@gmail.com>"]
 description = "Multi-index hashing (MIH) for neighbor searches on 64-bit codes in the Hamming space."
 license = "MIT"
+readme = "README.md"
+documentation = "https://docs.rs/mih-rs"
 repository = "https://github.com/kampersanda/mih-rs"
 homepage = "https://github.com/kampersanda/mih-rs"
-keywords = ["nns"]
+keywords = ["search", "index", "hamming"]
 categories = ["data-structures"]
 edition = "2018"
 

@@ -1,5 +1,9 @@
 # mih-rs
 
+[![Documentation](https://docs.rs/mih-rs/badge.svg)](https://docs.rs/mih-rs)
+[![Crates.io](https://img.shields.io/crates/v/mih-rs.svg)](https://crates.io/crates/mih-rs)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/kampersanda/mih-rs/blob/master/LICENSE)
+
 Rust implementation of multi-index hashing (MIH) for neighbor searches on 64-bit codes in the Hamming space, described in the paper
 
 > Norouzi, Punjani, and Fleet, **Fast exact search in Hamming space with multi-index hashing**, *IEEE TPAMI*, 36(6):1107– 1119, 2014.
@@ -12,7 +16,7 @@ Rust implementation of multi-index hashing (MIH) for neighbor searches on 64-bit
 
 - **Fast and memory-efficient implementation:** The data structure is built on sparse hash tables, following the original implementation.
 
-- **Parameter free:** mih-rs automatically sets an optimal parameter of MIH depending on a given database (although you can set this manually).
+- **Parameter free:** mih-rs automatically sets an optimal parameter of MIH depending on a given database (although you can also set this manually).
 
 ## Example
 
