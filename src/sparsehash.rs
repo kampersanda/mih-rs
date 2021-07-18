@@ -1,13 +1,10 @@
-//! Implements a sparse hash table of the internal data structure of MIH.
-//! Most users do not need to use this module directly.
-
 use crate::popcnt::popcnt_64;
 use std::io::{Error, ErrorKind};
 
 const GROUP_SIZE: usize = 64;
 const COUNT_FLAG: u32 = u32::max_value();
 
-#[derive(Default)]
+/// Sparse hash table of the internal data structure of MIH.
 pub struct Table {
     bits: usize,
     groups: Vec<Group>,

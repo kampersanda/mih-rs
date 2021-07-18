@@ -1,14 +1,10 @@
-//! Implements an MIH method.
-
 use crate::basic::*;
 use crate::sparsehash;
 
 use std::collections::HashSet;
 use std::io::{Error, ErrorKind};
 
-use std::mem;
-
-/// An index implementation of MIH.
+/// Implementation of multi-index hashing.
 pub struct Index<'db, T: CodeInt> {
     blocks: usize,
     codes: &'db [T],
@@ -18,13 +14,13 @@ pub struct Index<'db, T: CodeInt> {
 }
 
 impl<T: CodeInt> Index<'_, T> {
-    /// Constructs the index from 64-bit codes.
+    /// Constructs the index from binary codes.
     /// If invalid inputs are given, return ErrorKind::InvalidInput.
     pub fn new<'db>(codes: &'db [T]) -> Result<Index<T>, Error> {
-        let code_dims = (mem::size_of::<T>() * 8) as f64;
-        let code_size = codes.len() as f64;
+        let codes_size = codes.len() as f64;
+        let dimensions = T::dimensions() as f64;
 
-        let blocks = (code_dims / code_size.log2()).round() as usize;
+        let blocks = (dimensions / codes_size.log2()).round() as usize;
         if blocks < 2 {
             Index::new_with_blocks(codes, 2)
         } else {
@@ -39,6 +35,7 @@ impl<T: CodeInt> Index<'_, T> {
             let e = Error::new(ErrorKind::InvalidInput, "codes must not be empty.");
             return Err(e);
         }
+
         if (u32::max_value() as usize) < codes.len() {
             let e = Error::new(
                 ErrorKind::InvalidInput,
@@ -47,9 +44,13 @@ impl<T: CodeInt> Index<'_, T> {
             return Err(e);
         }
 
-        let code_dims = mem::size_of::<T>() * 8;
-        if blocks < 2 || code_dims < blocks {
-            let e = Error::new(ErrorKind::InvalidInput, "blocks must be in [2,code_dims].");
+        let dimensions = T::dimensions();
+
+        if blocks < 2 || dimensions < blocks {
+            let e = Error::new(
+                ErrorKind::InvalidInput,
+                "blocks must be in [2..dimensions].",
+            );
             return Err(e);
         }
 
@@ -57,9 +58,9 @@ impl<T: CodeInt> Index<'_, T> {
         let mut begs = vec![0usize; blocks + 1];
 
         for b in 0..blocks {
-            let dim = (b + code_dims) / blocks;
-            if 32 < dim {
-                let e = Error::new(ErrorKind::InvalidInput, "dim must be no more than 32.");
+            let dim = (b + dimensions) / blocks;
+            if 64 < dim {
+                let e = Error::new(ErrorKind::InvalidInput, "dim must be no more than 64.");
                 return Err(e);
             }
             masks[b] = (1 << dim) - 1;
@@ -75,15 +76,13 @@ impl<T: CodeInt> Index<'_, T> {
             let mut table = sparsehash::Table::new(dim)?;
 
             for id in 0..codes.len() {
-                let sub = codes[id] >> beg;
-                let pos = sub.to_u64().unwrap() & masks[b];
-                table.count_insert(pos as usize);
+                let subcode = (codes[id] >> beg).to_u64().unwrap() & masks[b];
+                table.count_insert(subcode as usize);
             }
 
             for id in 0..codes.len() {
-                let sub = codes[id] >> beg;
-                let pos = sub.to_u64().unwrap() & masks[b];
-                table.data_insert(pos as usize, id as u32);
+                let subcode = (codes[id] >> beg).to_u64().unwrap() & masks[b];
+                table.data_insert(subcode as usize, id as u32);
             }
 
             tables.push(table);
@@ -112,7 +111,7 @@ impl<T: CodeInt> Index<'_, T> {
         answers.clear();
 
         let blocks = self.get_blocks();
-        let mut siggen = SigGenerator::new();
+        let mut siggen = SigGenerator64::new();
 
         for b in 0..blocks {
             // Based on the general pigeonhole principle
@@ -124,7 +123,7 @@ impl<T: CodeInt> Index<'_, T> {
             let dim = self.get_dim(b);
             let qcd = self.get_chunk(qcode, b);
 
-            let table = &self.tables[b as usize];
+            let table = &self.tables[b];
 
             // Search with r errors
             for r in 0..rad + 1 {
@@ -167,15 +166,16 @@ impl<T: CodeInt> Index<'_, T> {
     /// Finds the topk codes that are closest to qcode.
     /// The ids of the topk codes are stored in answers.
     pub fn topk_search_with_buf(&self, qcode: T, topk: usize, answers: &mut Vec<u32>) {
-        answers.resize(65 * topk, Default::default());
+        let dimensions = T::dimensions();
+        answers.resize((dimensions + 1) * topk, Default::default());
 
         let blocks = self.get_blocks();
-        let mut siggen = SigGenerator::new();
+        let mut siggen = SigGenerator64::new();
 
         let mut n = 0;
         let mut r = 0;
 
-        let mut counts = vec![0; 65];
+        let mut counts = vec![0; dimensions + 1];
         let mut checked = HashSet::new();
 
         while n < topk {
@@ -226,7 +226,7 @@ impl<T: CodeInt> Index<'_, T> {
         answers.resize(topk, Default::default());
     }
 
-    fn get_blocks(&self) -> usize {
+    pub fn get_blocks(&self) -> usize {
         self.blocks
     }
 
@@ -239,7 +239,8 @@ impl<T: CodeInt> Index<'_, T> {
     }
 }
 
-pub struct SigGenerator {
+/// Generator of similar 64-bit codes (or signatures).
+pub struct SigGenerator64 {
     sig: u64,
     base: u64,
     radius: usize,
@@ -247,9 +248,10 @@ pub struct SigGenerator {
     power: [usize; 64],
 }
 
-impl SigGenerator {
-    fn new() -> SigGenerator {
-        SigGenerator {
+impl SigGenerator64 {
+    /// Create a new generator.
+    fn new() -> SigGenerator64 {
+        SigGenerator64 {
             sig: 0,
             base: 0,
             radius: 0,
@@ -258,8 +260,9 @@ impl SigGenerator {
         }
     }
 
+    /// Initialize the generator.
     fn init(&mut self, base: u64, dim: usize, radius: usize) {
-        assert!(radius < dim);
+        debug_assert!(radius < dim);
 
         self.sig = 0;
         self.base = base;
@@ -272,19 +275,21 @@ impl SigGenerator {
         self.power[radius] = dim + 1;
     }
 
+    /// Check if the next signature exists.
     fn has_next(&self) -> bool {
         self.bit != self.radius as isize
     }
 
+    /// Get the next signature.
     fn next(&mut self) -> u64 {
-        assert!(self.has_next());
+        debug_assert!(self.has_next());
 
         while self.bit != -1 {
             let idx = self.bit as usize;
             if self.power[idx] == idx {
                 self.sig ^= 1 << self.power[idx];
             } else {
-                assert!(0 < self.power[idx]);
+                debug_assert!(0 < self.power[idx]);
                 self.sig ^= 3 << (self.power[idx] - 1);
             }
             self.power[idx] += 1;
@@ -301,7 +306,7 @@ impl SigGenerator {
                 break;
             }
 
-            assert!(0 < self.power[idx]);
+            debug_assert!(0 < self.power[idx]);
             self.sig ^= 1 << (self.power[idx] - 1);
             self.power[idx] = idx;
         }
@@ -313,10 +318,10 @@ impl SigGenerator {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ls, utils};
+    use crate::{basic, ls};
     use std::collections::BTreeSet;
 
-    fn naive_topk_search(codes: &[u64], qcode: u64, topk: usize) -> Vec<u32> {
+    fn naive_topk_search<T: CodeInt>(codes: &[T], qcode: T, topk: usize) -> Vec<u32> {
         let mut cands = ls::exhaustive_search(codes, qcode);
         cands.sort_by_key(|x| x.1);
 
@@ -332,11 +337,8 @@ mod tests {
         answers
     }
 
-    #[test]
-    fn range_search_works() {
-        let codes = utils::random_codes(10000);
+    fn do_range_search<T: CodeInt>(codes: &[T]) {
         let index = Index::new(&codes).unwrap();
-
         for rad in 0..6 {
             for qi in (0..10000).step_by(100) {
                 let qcode = codes[qi];
@@ -347,11 +349,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn topk_search_works() {
-        let codes = utils::random_codes(10000);
+    fn do_topk_search<T: CodeInt>(codes: &[T]) {
         let index = Index::new(&codes).unwrap();
-
         for topk in &[1, 10, 100] {
             for qi in (0..10000).step_by(100) {
                 let qcode = codes[qi];
@@ -365,8 +364,20 @@ mod tests {
     }
 
     #[test]
+    fn range_search_works() {
+        let codes = basic::random_codes(10000);
+        do_range_search(&codes);
+    }
+
+    #[test]
+    fn topk_search_works() {
+        let codes = basic::random_codes(10000);
+        do_topk_search(&codes);
+    }
+
+    #[test]
     fn siggen_works() {
-        let mut siggen = SigGenerator::new();
+        let mut siggen = SigGenerator64::new();
         for k in 1..5 {
             siggen.init(0, 32, k);
             while siggen.has_next() {

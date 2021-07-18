@@ -1,5 +1,3 @@
-//! Implements a simple exhaustive search algorithm for comparison with MIH.
-
 use crate::basic::*;
 
 /// Finds the neighbors in codes, whose Hamming distances to qcode are within radius.

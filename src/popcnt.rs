@@ -1,3 +1,4 @@
+/// Generic trait for pop-countable integers.
 pub trait Popcnt {
     fn popcnt(&self) -> u32;
 }

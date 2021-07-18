@@ -48,6 +48,5 @@ pub mod ls;
 pub mod mih;
 pub mod popcnt;
 pub mod sparsehash;
-pub mod utils;
 
 pub use mih::Index;

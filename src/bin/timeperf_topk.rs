@@ -1,7 +1,5 @@
 //! Provides the benchmark of top-K search for MIH and LinearSearch algorithms.
-use mih_rs::ls;
-use mih_rs::mih;
-use mih_rs::utils;
+use mih_rs::*;
 use std::time;
 
 const SIZES: [usize; 4] = [10_000, 100_000, 1_000_000, 10_000_000];
@@ -11,8 +9,8 @@ fn main() {
     #[cfg(debug_assertions)]
     println!("Debugging enabled");
 
-    let codes = utils::random_codes(SIZES[SIZES.len() - 1]);
-    let qcodes = utils::random_codes(100);
+    let codes = basic::random_codes(SIZES[SIZES.len() - 1]);
+    let qcodes = basic::random_codes(100);
 
     for size in &SIZES {
         println!("--- N={} ---", *size);
@@ -29,7 +27,11 @@ fn main() {
                 assert_eq!(answers.len(), *topk);
             }
             let elapsed_ms = ins.elapsed().as_millis() as f64;
-            println!("MIH (K={}):\t{} ms/query", *topk, elapsed_ms / qcodes.len() as f64);
+            println!(
+                "MIH (K={}):\t{} ms/query",
+                *topk,
+                elapsed_ms / qcodes.len() as f64
+            );
         }
 
         let ins = time::Instant::now();
@@ -39,6 +41,9 @@ fn main() {
             assert_eq!(answers.len(), *size);
         }
         let elapsed_ms = ins.elapsed().as_millis() as f64;
-        println!("LinearSearch:\t{} ms/query", elapsed_ms / qcodes.len() as f64);
+        println!(
+            "LinearSearch:\t{} ms/query",
+            elapsed_ms / qcodes.len() as f64
+        );
     }
 }
