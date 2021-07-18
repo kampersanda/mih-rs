@@ -1,63 +1,71 @@
 //! Implements a sparse hash table of the internal data structure of MIH.
 //! Most users do not need to use this module directly.
 
-use crate::utils;
+use crate::popcnt::popcnt_64;
 use std::io::{Error, ErrorKind};
 
 const GROUP_SIZE: usize = 64;
 const COUNT_FLAG: u32 = u32::max_value();
 
-#[derive(Default, Clone)]
+#[derive(Default)]
 pub struct Table {
-    size: usize,
     bits: usize,
     groups: Vec<Group>,
 }
 
 impl Table {
+    /// Make a new table accessable with index in [0..2^bits).
     pub fn new(bits: usize) -> Result<Table, Error> {
-        if bits < 1 || 32 < bits {
-            let e = Error::new(ErrorKind::InvalidInput, "bits needs to be in [6,37]");
+        if bits == 0 {
+            let e = Error::new(ErrorKind::InvalidInput, "bits needs not to be zero.");
             return Err(e);
         }
 
         let size = 1 << bits;
-        let groups = vec![Group::default(); if size >= GROUP_SIZE { size / GROUP_SIZE } else { 1 }];
+        let num_groups = if size >= GROUP_SIZE {
+            size / GROUP_SIZE
+        } else {
+            1
+        };
 
         Ok(Table {
-            size: size,
             bits: bits,
-            groups: groups,
+            groups: vec![Group::default(); num_groups],
         })
     }
 
     pub fn access(&self, idx: usize) -> Option<&[u32]> {
+        debug_assert!(idx < self.get_size());
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].access(gmod)
     }
 
     pub fn insert(&mut self, idx: usize, dat: u32) {
+        debug_assert!(idx < self.get_size());
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].insert(gmod, dat);
     }
 
     pub fn count_insert(&mut self, idx: usize) {
+        debug_assert!(idx < self.get_size());
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].count_insert(gmod);
     }
 
     pub fn data_insert(&mut self, idx: usize, dat: u32) {
+        debug_assert!(idx < self.get_size());
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].data_insert(gmod, dat);
     }
 
     pub fn get_size(&self) -> usize {
-        self.size
+        1 << self.bits
     }
+
     pub fn get_bits(&self) -> usize {
         self.bits
     }
@@ -79,12 +87,12 @@ impl Group {
     fn access(&self, idx: usize) -> Option<&[u32]> {
         debug_assert!(idx < GROUP_SIZE);
 
-        if !utils::get(self.bitmap, idx) {
+        if !get(self.bitmap, idx) {
             return None;
         }
 
-        let howmany = utils::popcnt_mask(self.bitmap, idx);
-        let totones = utils::popcnt(self.bitmap);
+        let howmany = popcnt_mask(self.bitmap, idx);
+        let totones = popcnt(self.bitmap);
 
         let bpos = totones + 1 + self.array[howmany] as usize;
         let epos = bpos + (self.array[howmany + 1] - self.array[howmany]) as usize;
@@ -96,20 +104,21 @@ impl Group {
         debug_assert!(idx < GROUP_SIZE);
 
         if self.bitmap == 0 {
-            self.bitmap = utils::set(self.bitmap, idx);
+            self.bitmap = set(self.bitmap, idx);
             self.array = vec![0, 1, dat]; // beg, end, dat
             return;
         }
 
-        let howmany = utils::popcnt_mask(self.bitmap, idx);
+        let howmany = popcnt_mask(self.bitmap, idx);
 
-        if !utils::get(self.bitmap, idx) {
+        if !get(self.bitmap, idx) {
             self.array.insert(howmany, self.array[howmany]);
-            self.bitmap = utils::set(self.bitmap, idx);
+            self.bitmap = set(self.bitmap, idx);
         }
 
-        let totones = utils::popcnt(self.bitmap);
-        self.array.insert(totones + 1 + self.array[howmany + 1] as usize, dat);
+        let totones = popcnt(self.bitmap);
+        let position = totones + 1 + self.array[howmany + 1] as usize;
+        self.array.insert(position, dat);
 
         for i in howmany + 1..totones + 1 {
             self.array[i] += 1;
@@ -123,10 +132,11 @@ impl Group {
             self.array.push(COUNT_FLAG);
         }
 
-        let howmany = utils::popcnt_mask(self.bitmap, idx);
-        if !utils::get(self.bitmap, idx) {
+        let howmany = popcnt_mask(self.bitmap, idx);
+
+        if !get(self.bitmap, idx) {
             self.array.insert(howmany + 1, 1);
-            self.bitmap = utils::set(self.bitmap, idx);
+            self.bitmap = set(self.bitmap, idx);
         } else {
             self.array[howmany + 1] += 1;
         }
@@ -134,14 +144,14 @@ impl Group {
 
     fn data_insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < GROUP_SIZE);
-        debug_assert!(utils::get(self.bitmap, idx));
+        debug_assert!(get(self.bitmap, idx));
 
         if self.array[0] == COUNT_FLAG {
             self.allocate_mem_based_on_counts();
         }
 
-        let totones = utils::popcnt(self.bitmap);
-        let howmany = utils::popcnt_mask(self.bitmap, idx);
+        let totones = popcnt(self.bitmap);
+        let howmany = popcnt_mask(self.bitmap, idx);
 
         let offset = self.array[howmany + 1] as usize;
         self.array[totones + 1 + offset] = dat;
@@ -152,7 +162,7 @@ impl Group {
         debug_assert_ne!(self.bitmap, 0);
         debug_assert_eq!(self.array[0], COUNT_FLAG);
 
-        let totones = utils::popcnt(self.bitmap);
+        let totones = popcnt(self.bitmap);
         debug_assert_eq!(totones + 1, self.array.len());
 
         self.array[0] = 0;
@@ -171,19 +181,38 @@ impl Group {
     fn get_size(&self, idx: usize) -> usize {
         debug_assert!(idx < GROUP_SIZE);
 
-        if !utils::get(self.bitmap, idx) {
+        if !get(self.bitmap, idx) {
             0
         } else {
-            let howmany = utils::popcnt_mask(self.bitmap, idx);
+            let howmany = popcnt_mask(self.bitmap, idx);
             (self.array[howmany + 1] - self.array[howmany]) as usize
         }
     }
 }
 
+fn popcnt(x: u64) -> usize {
+    popcnt_64(x) as usize
+}
+
+fn popcnt_mask(x: u64, i: usize) -> usize {
+    debug_assert!(i < 64);
+    popcnt(x & ((1 << i) - 1))
+}
+
+fn get(x: u64, i: usize) -> bool {
+    debug_assert!(i < 64);
+    (x & (1 << i)) != 0
+}
+
+fn set(x: u64, i: usize) -> u64 {
+    debug_assert!(i < 64);
+    x | (1 << i)
+}
+
 #[cfg(test)]
 mod tests {
     use crate::sparsehash::*;
-    use rand::{thread_rng, Rng};
+    use rand::prelude::*;
 
     #[test]
     fn table_works() {
@@ -194,7 +223,7 @@ mod tests {
 
         let mut rng = thread_rng();
         for i in 0..1000 {
-            let idx: usize = rng.gen_range(0, obj2.get_size());
+            let idx = rng.gen_range(0..obj2.get_size());
             obj1[idx].push(i);
             obj2.insert(idx, i);
         }
@@ -216,10 +245,10 @@ mod tests {
         assert_eq!(obj2.get_size(), obj1.len());
 
         let mut rng = thread_rng();
-        let mut idxs = vec![0 as usize; 1000];
+        let mut idxs = vec![0; 1000];
 
         for i in 0..1000 {
-            idxs[i] = rng.gen_range(0, obj2.get_size());
+            idxs[i] = rng.gen_range(0..obj2.get_size());
         }
 
         for i in 0..1000 {
@@ -250,7 +279,7 @@ mod tests {
         let mut obj2 = Group::default();
 
         for i in 0..100 {
-            let idx: usize = rng.gen_range(0, GROUP_SIZE);
+            let idx = rng.gen_range(0..GROUP_SIZE);
             obj1[idx].push(i);
             obj2.insert(idx, i);
         }
@@ -271,9 +300,9 @@ mod tests {
         let mut obj1 = vec![Vec::<u32>::default(); GROUP_SIZE];
         let mut obj2 = Group::default();
 
-        let mut idxs = vec![0 as usize; 100];
+        let mut idxs = vec![0; 100];
         for i in 0..100 {
-            idxs[i] = rng.gen_range(0, GROUP_SIZE);
+            idxs[i] = rng.gen_range(0..GROUP_SIZE);
         }
 
         for i in 0..100 {

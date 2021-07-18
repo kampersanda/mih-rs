@@ -1,24 +1,30 @@
 //! Implements an MIH method.
 
+use crate::basic::*;
 use crate::sparsehash;
-use crate::utils;
+
 use std::collections::HashSet;
 use std::io::{Error, ErrorKind};
 
+use std::mem;
+
 /// An index implementation of MIH.
-pub struct Index<'db> {
+pub struct Index<'db, T: CodeInt> {
     blocks: usize,
-    codes: &'db [u64],
+    codes: &'db [T],
     tables: Vec<sparsehash::Table>,
     masks: Vec<u64>,
     begs: Vec<usize>,
 }
 
-impl Index<'_> {
+impl<T: CodeInt> Index<'_, T> {
     /// Constructs the index from 64-bit codes.
     /// If invalid inputs are given, return ErrorKind::InvalidInput.
-    pub fn new<'db>(codes: &'db [u64]) -> Result<Index, Error> {
-        let blocks = (64.0 / (codes.len() as f64).log2()).round() as usize;
+    pub fn new<'db>(codes: &'db [T]) -> Result<Index<T>, Error> {
+        let code_dims = (mem::size_of::<T>() * 8) as f64;
+        let code_size = codes.len() as f64;
+
+        let blocks = (code_dims / code_size.log2()).round() as usize;
         if blocks < 2 {
             Index::new_with_blocks(codes, 2)
         } else {
@@ -28,7 +34,7 @@ impl Index<'_> {
 
     /// Constructs the index from 64-bit codes using manual parameter of blocks.
     /// If invalid inputs are given, return ErrorKind::InvalidInput.
-    pub fn new_with_blocks<'db>(codes: &'db [u64], blocks: usize) -> Result<Index, Error> {
+    pub fn new_with_blocks<'db>(codes: &'db [T], blocks: usize) -> Result<Index<T>, Error> {
         if codes.is_empty() {
             let e = Error::new(ErrorKind::InvalidInput, "codes must not be empty.");
             return Err(e);
@@ -36,20 +42,26 @@ impl Index<'_> {
         if (u32::max_value() as usize) < codes.len() {
             let e = Error::new(
                 ErrorKind::InvalidInput,
-                "number of codes must be no more than 2^32.",
+                "codes.len() must be no more than 2^32.",
             );
             return Err(e);
         }
-        if blocks < 2 || 64 < blocks {
-            let e = Error::new(ErrorKind::InvalidInput, "blocks must be in [2,64].");
+
+        let code_dims = mem::size_of::<T>() * 8;
+        if blocks < 2 || code_dims < blocks {
+            let e = Error::new(ErrorKind::InvalidInput, "blocks must be in [2,code_dims].");
             return Err(e);
         }
 
-        let mut masks = vec![0 as u64; blocks];
-        let mut begs = vec![0 as usize; blocks + 1];
+        let mut masks = vec![0u64; blocks];
+        let mut begs = vec![0usize; blocks + 1];
 
         for b in 0..blocks {
-            let dim = (b + 64) / blocks;
+            let dim = (b + code_dims) / blocks;
+            if 32 < dim {
+                let e = Error::new(ErrorKind::InvalidInput, "dim must be no more than 32.");
+                return Err(e);
+            }
             masks[b] = (1 << dim) - 1;
             begs[b + 1] = begs[b] + dim;
         }
@@ -63,11 +75,14 @@ impl Index<'_> {
             let mut table = sparsehash::Table::new(dim)?;
 
             for id in 0..codes.len() {
-                let pos = (codes[id] >> beg) & masks[b];
+                let sub = codes[id] >> beg;
+                let pos = sub.to_u64().unwrap() & masks[b];
                 table.count_insert(pos as usize);
             }
+
             for id in 0..codes.len() {
-                let pos = (codes[id] >> beg) & masks[b];
+                let sub = codes[id] >> beg;
+                let pos = sub.to_u64().unwrap() & masks[b];
                 table.data_insert(pos as usize, id as u32);
             }
 
@@ -85,19 +100,19 @@ impl Index<'_> {
 
     /// Finds the neighbor codes whose Hamming distances to qcode are within radius.
     /// Returns the ids of the neighbor codes.
-    pub fn range_search(&self, qcode: u64, radius: usize) -> Vec<usize> {
-        let mut answers = Vec::<usize>::with_capacity(1 << 10);
+    pub fn range_search(&self, qcode: T, radius: usize) -> Vec<u32> {
+        let mut answers = Vec::<u32>::with_capacity(1 << 8);
         self.range_search_with_buf(qcode, radius, &mut answers);
         answers
     }
 
     /// Finds the neighbor codes whose Hamming distances to qcode are within radius.
     /// The ids of the neighbor codes are stored in answers.
-    pub fn range_search_with_buf(&self, qcode: u64, radius: usize, answers: &mut Vec<usize>) {
+    pub fn range_search_with_buf(&self, qcode: T, radius: usize, answers: &mut Vec<u32>) {
         answers.clear();
 
         let blocks = self.get_blocks();
-        let mut siggen = SigGenerator::default();
+        let mut siggen = SigGenerator::new();
 
         for b in 0..blocks {
             // Based on the general pigeonhole principle
@@ -109,7 +124,7 @@ impl Index<'_> {
             let dim = self.get_dim(b);
             let qcd = self.get_chunk(qcode, b);
 
-            let table = &self.tables[b];
+            let table = &self.tables[b as usize];
 
             // Search with r errors
             for r in 0..rad + 1 {
@@ -118,7 +133,7 @@ impl Index<'_> {
                     let sig = siggen.next();
                     if let Some(a) = table.access(sig as usize) {
                         for v in a {
-                            answers.push(*v as usize);
+                            answers.push(*v as u32);
                         }
                     }
                 }
@@ -130,7 +145,7 @@ impl Index<'_> {
             answers.sort();
             for i in 0..answers.len() {
                 if i == 0 || answers[i - 1] != answers[i] {
-                    let dist = utils::hamdist(qcode, self.codes[answers[i]]);
+                    let dist = hamdist(qcode, self.codes[answers[i] as usize]);
                     if dist <= radius {
                         answers[n] = answers[i];
                         n += 1;
@@ -143,25 +158,25 @@ impl Index<'_> {
 
     /// Finds the topk codes that are closest to qcode.
     /// Returns the ids of the topk codes.
-    pub fn topk_search(&self, qcode: u64, topk: usize) -> Vec<usize> {
-        let mut answers = Vec::<usize>::new();
+    pub fn topk_search(&self, qcode: T, topk: usize) -> Vec<u32> {
+        let mut answers = Vec::new();
         self.topk_search_with_buf(qcode, topk, &mut answers);
         answers
     }
 
     /// Finds the topk codes that are closest to qcode.
     /// The ids of the topk codes are stored in answers.
-    pub fn topk_search_with_buf(&self, qcode: u64, topk: usize, answers: &mut Vec<usize>) {
+    pub fn topk_search_with_buf(&self, qcode: T, topk: usize, answers: &mut Vec<u32>) {
         answers.resize(65 * topk, Default::default());
 
         let blocks = self.get_blocks();
-        let mut siggen = SigGenerator::default();
+        let mut siggen = SigGenerator::new();
 
         let mut n = 0;
         let mut r = 0;
 
-        let mut counts = vec![0 as usize; 65];
-        let mut checked = HashSet::<usize>::new();
+        let mut counts = vec![0; 65];
+        let mut checked = HashSet::new();
 
         while n < topk {
             for b in 0..blocks {
@@ -178,9 +193,9 @@ impl Index<'_> {
                             let id = *v as usize;
 
                             if checked.insert(id) {
-                                let dist = utils::hamdist(qcode, self.codes[id]);
+                                let dist = hamdist(qcode, self.codes[id]);
                                 if counts[dist] < topk {
-                                    answers[dist * topk + counts[dist]] = id;
+                                    answers[dist * topk + counts[dist]] = id as u32;
                                 }
                                 counts[dist] += 1;
                             }
@@ -219,12 +234,11 @@ impl Index<'_> {
         self.begs[b + 1] - self.begs[b]
     }
 
-    fn get_chunk(&self, code: u64, b: usize) -> u64 {
-        (code >> self.begs[b]) & self.masks[b]
+    fn get_chunk(&self, code: T, b: usize) -> u64 {
+        (code >> self.begs[b] as usize).to_u64().unwrap() & self.masks[b]
     }
 }
 
-#[derive(Clone)]
 pub struct SigGenerator {
     sig: u64,
     base: u64,
@@ -233,8 +247,8 @@ pub struct SigGenerator {
     power: [usize; 64],
 }
 
-impl Default for SigGenerator {
-    fn default() -> SigGenerator {
+impl SigGenerator {
+    fn new() -> SigGenerator {
         SigGenerator {
             sig: 0,
             base: 0,
@@ -243,9 +257,7 @@ impl Default for SigGenerator {
             power: [0; 64],
         }
     }
-}
 
-impl SigGenerator {
     fn init(&mut self, base: u64, dim: usize, radius: usize) {
         assert!(radius < dim);
 
@@ -300,18 +312,19 @@ impl SigGenerator {
 
 #[cfg(test)]
 mod tests {
-    use crate::ls;
-    use crate::mih::*;
+    use super::*;
+    use crate::{ls, utils};
     use std::collections::BTreeSet;
 
-    fn naive_topk_search(codes: &[u64], qcode: u64, topk: usize) -> Vec<usize> {
+    fn naive_topk_search(codes: &[u64], qcode: u64, topk: usize) -> Vec<u32> {
         let mut cands = ls::exhaustive_search(codes, qcode);
         cands.sort_by_key(|x| x.1);
 
         let max_dist = cands[topk - 1].1;
 
         let mut i = 0;
-        let mut answers = Vec::<usize>::new();
+        let mut answers = Vec::new();
+
         while cands[i].1 <= max_dist {
             answers.push(cands[i].0);
             i += 1;
@@ -344,8 +357,8 @@ mod tests {
                 let qcode = codes[qi];
                 let ans1 = naive_topk_search(&codes, qcode, *topk);
                 let ans2 = index.topk_search(qcode, *topk);
-                let set1: BTreeSet<usize> = ans1.into_iter().collect();
-                let set2: BTreeSet<usize> = ans2.into_iter().collect();
+                let set1: BTreeSet<u32> = ans1.into_iter().collect();
+                let set2: BTreeSet<u32> = ans2.into_iter().collect();
                 assert_eq!(set2.is_subset(&set1), true);
             }
         }
@@ -353,7 +366,7 @@ mod tests {
 
     #[test]
     fn siggen_works() {
-        let mut siggen = SigGenerator::default();
+        let mut siggen = SigGenerator::new();
         for k in 1..5 {
             siggen.init(0, 32, k);
             while siggen.has_next() {

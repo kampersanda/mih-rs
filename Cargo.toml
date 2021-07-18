@@ -13,4 +13,5 @@ categories = ["data-structures"]
 edition = "2018"
 
 [dependencies]
-rand = "0.6"
+rand = "0.8.4"
+num-traits = "0.2.14"
