@@ -34,7 +34,10 @@ impl Index<'_> {
             return Err(e);
         }
         if (u32::max_value() as usize) < codes.len() {
-            let e = Error::new(ErrorKind::InvalidInput, "number of codes must be no more than 2^32.");
+            let e = Error::new(
+                ErrorKind::InvalidInput,
+                "number of codes must be no more than 2^32.",
+            );
             return Err(e);
         }
         if blocks < 2 || 64 < blocks {
