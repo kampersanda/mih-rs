@@ -9,7 +9,7 @@ pub struct Index<'db, T: CodeInt> {
     blocks: usize,
     codes: &'db [T],
     tables: Vec<sparsehash::Table>,
-    masks: Vec<u64>,
+    masks: Vec<T>,
     begs: Vec<usize>,
 }
 
@@ -54,7 +54,7 @@ impl<T: CodeInt> Index<'_, T> {
             return Err(e);
         }
 
-        let mut masks = vec![0u64; blocks];
+        let mut masks = vec![T::default(); blocks];
         let mut begs = vec![0usize; blocks + 1];
 
         for b in 0..blocks {
@@ -63,7 +63,11 @@ impl<T: CodeInt> Index<'_, T> {
                 let e = Error::new(ErrorKind::InvalidInput, "dim must be no more than 64.");
                 return Err(e);
             }
-            masks[b] = (1 << dim) - 1;
+            if 64 == dim {
+                masks[b] = T::from_u64(u64::MAX).unwrap();
+            } else {
+                masks[b] = T::from_u64((1 << dim) - 1).unwrap();
+            }
             begs[b + 1] = begs[b] + dim;
         }
 
@@ -76,13 +80,13 @@ impl<T: CodeInt> Index<'_, T> {
             let mut table = sparsehash::Table::new(dim)?;
 
             for id in 0..codes.len() {
-                let subcode = (codes[id] >> beg).to_u64().unwrap() & masks[b];
-                table.count_insert(subcode as usize);
+                let chunk = (codes[id] >> beg) & masks[b];
+                table.count_insert(chunk.to_u64().unwrap() as usize);
             }
 
             for id in 0..codes.len() {
-                let subcode = (codes[id] >> beg).to_u64().unwrap() & masks[b];
-                table.data_insert(subcode as usize, id as u32);
+                let chunk = (codes[id] >> beg) & masks[b];
+                table.data_insert(chunk.to_u64().unwrap() as usize, id as u32);
             }
 
             tables.push(table);
@@ -235,7 +239,8 @@ impl<T: CodeInt> Index<'_, T> {
     }
 
     fn get_chunk(&self, code: T, b: usize) -> u64 {
-        (code >> self.begs[b] as usize).to_u64().unwrap() & self.masks[b]
+        let chunk = (code >> self.begs[b]) & self.masks[b];
+        chunk.to_u64().unwrap()
     }
 }
 
@@ -364,14 +369,38 @@ mod tests {
     }
 
     #[test]
-    fn range_search_works() {
-        let codes = basic::random_codes(10000);
+    fn range_search_u32_works() {
+        let codes = basic::gen_random_codes::<u32>(10000);
         do_range_search(&codes);
     }
 
     #[test]
-    fn topk_search_works() {
-        let codes = basic::random_codes(10000);
+    fn range_search_u64_works() {
+        let codes = basic::gen_random_codes::<u64>(10000);
+        do_range_search(&codes);
+    }
+
+    #[test]
+    fn range_search_u128_works() {
+        let codes = basic::gen_random_codes::<u128>(10000);
+        do_range_search(&codes);
+    }
+
+    #[test]
+    fn topk_search_u32_works() {
+        let codes = basic::gen_random_codes::<u32>(10000);
+        do_topk_search(&codes);
+    }
+
+    #[test]
+    fn topk_search_u64_works() {
+        let codes = basic::gen_random_codes::<u64>(10000);
+        do_topk_search(&codes);
+    }
+
+    #[test]
+    fn topk_search_u128_works() {
+        let codes = basic::gen_random_codes::<u128>(10000);
         do_topk_search(&codes);
     }
 

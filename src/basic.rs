@@ -1,10 +1,11 @@
 use crate::popcnt::Popcnt;
 use num_traits::int::PrimInt;
 use num_traits::{FromPrimitive, ToPrimitive};
+use rand::distributions::{Distribution, Standard};
 use rand::{thread_rng, Rng};
 
 /// Generic trait of binary codes.
-pub trait CodeInt: PrimInt + FromPrimitive + ToPrimitive + Popcnt {
+pub trait CodeInt: PrimInt + FromPrimitive + ToPrimitive + Popcnt + Default {
     fn dimensions() -> usize;
 }
 
@@ -44,11 +45,23 @@ pub fn hamdist<T: CodeInt>(x: T, y: T) -> usize {
 }
 
 /// Generate random binary codes.
-pub fn random_codes(size: usize) -> Vec<u64> {
+// pub fn random_codes(size: usize) -> Vec<u64> {
+//     let mut rng = thread_rng();
+//     let mut codes = vec![0; size];
+//     for i in 0..size {
+//         codes[i] = rng.gen::<u64>();
+//     }
+//     codes
+// }
+
+pub fn gen_random_codes<T>(size: usize) -> Vec<T>
+where
+    Standard: Distribution<T>,
+{
     let mut rng = thread_rng();
-    let mut codes = vec![0; size];
-    for i in 0..size {
-        codes[i] = rng.gen::<u64>();
+    let mut codes: Vec<T> = Vec::with_capacity(size);
+    for _ in 0..size {
+        codes.push(rng.gen::<T>());
     }
     codes
 }

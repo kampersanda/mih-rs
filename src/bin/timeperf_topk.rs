@@ -9,8 +9,8 @@ fn main() {
     #[cfg(debug_assertions)]
     println!("Debugging enabled");
 
-    let codes = basic::random_codes(SIZES[SIZES.len() - 1]);
-    let qcodes = basic::random_codes(100);
+    let codes = basic::gen_random_codes::<u64>(SIZES[SIZES.len() - 1]);
+    let qcodes = basic::gen_random_codes::<u64>(100);
 
     for size in &SIZES {
         println!("--- N={} ---", *size);
