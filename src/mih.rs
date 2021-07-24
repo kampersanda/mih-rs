@@ -1,4 +1,4 @@
-use crate::basic::*;
+use crate::codeint::*;
 use crate::sparsehash;
 
 use std::collections::HashSet;
@@ -323,7 +323,7 @@ impl SigGenerator64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{basic, ls};
+    use crate::{ls, utils};
     use std::collections::BTreeSet;
 
     fn naive_topk_search<T: CodeInt>(codes: &[T], qcode: T, topk: usize) -> Vec<u32> {
@@ -369,38 +369,62 @@ mod tests {
     }
 
     #[test]
+    fn range_search_u8_works() {
+        let codes = utils::gen_random_codes::<u8>(10000);
+        do_range_search(&codes);
+    }
+
+    #[test]
+    fn range_search_u16_works() {
+        let codes = utils::gen_random_codes::<u16>(10000);
+        do_range_search(&codes);
+    }
+
+    #[test]
     fn range_search_u32_works() {
-        let codes = basic::gen_random_codes::<u32>(10000);
+        let codes = utils::gen_random_codes::<u32>(10000);
         do_range_search(&codes);
     }
 
     #[test]
     fn range_search_u64_works() {
-        let codes = basic::gen_random_codes::<u64>(10000);
+        let codes = utils::gen_random_codes::<u64>(10000);
         do_range_search(&codes);
     }
 
     #[test]
     fn range_search_u128_works() {
-        let codes = basic::gen_random_codes::<u128>(10000);
+        let codes = utils::gen_random_codes::<u128>(10000);
         do_range_search(&codes);
     }
 
     #[test]
+    fn topk_search_u8_works() {
+        let codes = utils::gen_random_codes::<u8>(10000);
+        do_topk_search(&codes);
+    }
+
+    #[test]
+    fn topk_search_u16_works() {
+        let codes = utils::gen_random_codes::<u16>(10000);
+        do_topk_search(&codes);
+    }
+
+    #[test]
     fn topk_search_u32_works() {
-        let codes = basic::gen_random_codes::<u32>(10000);
+        let codes = utils::gen_random_codes::<u32>(10000);
         do_topk_search(&codes);
     }
 
     #[test]
     fn topk_search_u64_works() {
-        let codes = basic::gen_random_codes::<u64>(10000);
+        let codes = utils::gen_random_codes::<u64>(10000);
         do_topk_search(&codes);
     }
 
     #[test]
     fn topk_search_u128_works() {
-        let codes = basic::gen_random_codes::<u128>(10000);
+        let codes = utils::gen_random_codes::<u128>(10000);
         do_topk_search(&codes);
     }
 

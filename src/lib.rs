@@ -43,10 +43,12 @@
 //!     println!("{:?}", answers); // [4, 1, 6, 0]
 //! }
 //! ```
-pub mod basic;
+pub mod codeint;
 pub mod ls;
 pub mod mih;
 pub mod popcnt;
 pub mod sparsehash;
+pub mod utils;
 
+pub use codeint::CodeInt;
 pub use mih::Index;
