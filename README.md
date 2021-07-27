@@ -4,7 +4,7 @@
 [![Crates.io](https://img.shields.io/crates/v/mih-rs.svg)](https://crates.io/crates/mih-rs)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/kampersanda/mih-rs/blob/master/LICENSE)
 
-Rust implementation of multi-index hashing (MIH) for neighbor searches on 64-bit codes in the Hamming space, described in the paper
+Rust implementation of multi-index hashing (MIH) for neighbor searches on binary codes in the Hamming space, described in the paper
 
 > Norouzi, Punjani, and Fleet, **Fast exact search in Hamming space with multi-index hashing**, *IEEE TPAMI*, 36(6):1107– 1119, 2014.
 
@@ -52,22 +52,49 @@ fn main() {
 }
 ```
 
+## Binary code types
+
+`mih_rs::Index` can be built from an array of type `mih_rs::CodeInt` that is a primitive integer type supporting a popcount operation via trait `mih_rs::popcnt::Popcnt`.
+
+Currently, this library defines `mih_rs::CodeInt` for `u8`, `u16`, `u32`, `u64`, and `u128`. That is, `mih_rs::Index` supports neighbor searches on these binary code types. 
+
 ## Benchmark
 
-`timeperf_topk.rs` offers the benchmark of top-K search for MIH and LinearSearch algorithms.
+`timeperf_topk.rs` offers the benchmark of top-K search for MIH and LinearSearch algorithms on binary code types `u32`, `u64`, and `u128`.
 
 The following table shows the result of average search times in milliseconds per query, in the settings:
 
 - **Database**: N random codes from a uniform distribution.
 - **Query set**: 100 random codes from a uniform distribution.
-- **Machine**: Mac Pro (Late 2013) of 6 core Intel Xeon E5 @3.5 GHz with 32 GB of RAM.
+- **Machine**: MacBook Pro (2019) of Quad-Core Intel Core i5 @2.4 GHz with 16 GB of RAM.
+- **Library version**: v0.2.0
+
+### Result for `u32`
 
 | Algorithm    | N=10,000 | N=100,000 | N=1,000,000 | N=10,000,000 |
 | ------------ | -------: | --------: | ----------: | -----------: |
-| MIH (K=1)    |      0.1 |       0.4 |         1.7 |          6.5 |
-| MIH (K=10)   |      0.2 |       0.8 |         4.0 |         13.6 |
-| MIH (K=100)  |      0.4 |       1.6 |         7.9 |         32.0 |
-| LinearSearch |      0.4 |       4.9 |        56.1 |        701.4 |
+| MIH (K=1)    |     0.01 |      0.02 |        0.07 |         0.38 |
+| MIH (K=10)   |     0.04 |      0.08 |        0.30 |         1.06 |
+| MIH (K=100)  |     0.13 |      0.22 |        1.22 |         4.35 |
+| LinearSearch |     0.36 |      4.40 |       50.96 |       626.87 |
+
+### Result for `u64`
+
+| Algorithm    | N=10,000 | N=100,000 | N=1,000,000 | N=10,000,000 |
+| ------------ | -------: | --------: | ----------: | -----------: |
+| MIH (K=1)    |     0.10 |      0.36 |        1.46 |          6.7 |
+| MIH (K=10)   |     0.20 |      0.76 |        3.72 |         14.8 |
+| MIH (K=100)  |     0.41 |      1.53 |        7.02 |         33.2 |
+| LinearSearch |     0.36 |      4.36 |       52.28 |        629.1 |
+
+### Result for `u128`
+
+| Algorithm    | N=10,000 | N=100,000 | N=1,000,000 | N=10,000,000 |
+| ------------ | -------: | --------: | ----------: | -----------: |
+| MIH (K=1)    |     0.57 |      3.24 |        23.7 |          162 |
+| MIH (K=10)   |     0.83 |      4.95 |        42.6 |          323 |
+| MIH (K=100)  |     1.10 |      7.71 |        69.5 |          416 |
+| LinearSearch |     0.48 |      5.47 |        62.3 |          698 |
 
 ## Licensing
 
