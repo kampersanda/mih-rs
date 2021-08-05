@@ -1,5 +1,6 @@
 # mih-rs
 
+![](https://github.com/kampersanda/mih-rs/actions/workflows/rust.yml/badge.svg)
 [![Documentation](https://docs.rs/mih-rs/badge.svg)](https://docs.rs/mih-rs)
 [![Crates.io](https://img.shields.io/crates/v/mih-rs.svg)](https://crates.io/crates/mih-rs)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/kampersanda/mih-rs/blob/master/LICENSE)
