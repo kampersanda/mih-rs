@@ -1,4 +1,4 @@
-use crate::popcnt::popcnt_64;
+use crate::codeint::popcnt::popcnt_64;
 use std::io::{Error, ErrorKind};
 
 const GROUP_SIZE: usize = 64;
@@ -38,6 +38,7 @@ impl Table {
         self.groups[gpos].access(gmod)
     }
 
+    #[allow(dead_code)]
     pub fn insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < self.get_size());
         let gpos = idx / GROUP_SIZE;
@@ -63,10 +64,12 @@ impl Table {
         1 << self.bits
     }
 
+    #[allow(dead_code)]
     pub fn get_bits(&self) -> usize {
         self.bits
     }
 
+    #[allow(dead_code)]
     pub fn get_array_size(&self, idx: usize) -> usize {
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
@@ -208,7 +211,7 @@ fn set(x: u64, i: usize) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use crate::sparsehash::*;
+    use super::*;
     use rand::prelude::*;
 
     #[test]

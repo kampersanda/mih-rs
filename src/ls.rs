@@ -1,4 +1,5 @@
-use crate::codeint::*;
+use crate::hamdist;
+use crate::CodeInt;
 
 /// Finds the neighbors in codes, whose Hamming distances to qcode are within radius.
 /// Returns the ids of the neighbor codes.

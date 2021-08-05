@@ -1,6 +1,8 @@
-use crate::popcnt::Popcnt;
 use num_traits::int::PrimInt;
 use num_traits::{FromPrimitive, ToPrimitive};
+
+pub mod popcnt;
+use popcnt::Popcnt;
 
 /// Generic trait of binary codes.
 pub trait CodeInt: PrimInt + FromPrimitive + ToPrimitive + Popcnt + Default {
@@ -35,9 +37,4 @@ impl CodeInt for u128 {
     fn dimensions() -> usize {
         128
     }
-}
-
-/// Get the Hamming distance.
-pub fn hamdist<T: CodeInt>(x: T, y: T) -> usize {
-    (x ^ y).popcnt() as usize
 }

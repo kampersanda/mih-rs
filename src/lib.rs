@@ -1,9 +1,5 @@
 //! # mih-rs
 //!
-//! [![Documentation](https://docs.rs/mih-rs/badge.svg)](https://docs.rs/mih-rs)
-//! [![Crates.io](https://img.shields.io/crates/v/mih-rs.svg)](https://crates.io/crates/mih-rs)
-//! [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/kampersanda/mih-rs/blob/master/LICENSE)
-//!
 //! Rust implementation of multi-index hashing (MIH) for neighbor searches on binary codes in the Hamming space, described in the paper
 //!
 //! > Norouzi, Punjani, and Fleet, **Fast exact search in Hamming space with multi-index hashing**, *IEEE TPAMI*, 36(6):1107– 1119, 2014.
@@ -54,15 +50,21 @@
 //!
 //! ## Binary code types
 //!
-//! `mih_rs::Index` can be built from an array of type `mih_rs::CodeInt` that is a primitive integer type supporting a popcount operation via trait `mih_rs::popcnt::Popcnt`.
-//!
-//! Currently, this library defines `mih_rs::CodeInt` for `u8`, `u16`, `u32`, `u64`, and `u128`. That is, `mih_rs::Index` supports neighbor searches on these binary code types.
-pub mod codeint;
+//! `Index` can be built from an array of type `CodeInt` that is a primitive integer trait supporting a popcount operation. Currently, this library defines `CodeInt` for `u8`, `u16`, `u32`, `u64`, and `u128`. That is, `Index` supports neighbor searches on these binary code types.
+
+/// An implementation of multi-index hashing.
+pub mod index;
+
+/// Exhaustive search functions.
 pub mod ls;
-pub mod mih;
-pub mod popcnt;
-pub mod sparsehash;
-pub mod utils;
+
+/// A generic trait of supported binary codes.
+pub mod codeint;
 
 pub use codeint::CodeInt;
-pub use mih::Index;
+pub use index::Index;
+
+/// Gets the Hamming distance between two binary codes.
+pub fn hamdist<T: CodeInt>(x: T, y: T) -> usize {
+    (x ^ y).popcnt() as usize
+}

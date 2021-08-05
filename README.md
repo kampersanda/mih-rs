@@ -54,9 +54,7 @@ fn main() {
 
 ## Binary code types
 
-`mih_rs::Index` can be built from an array of type `mih_rs::CodeInt` that is a primitive integer type supporting a popcount operation via trait `mih_rs::popcnt::Popcnt`.
-
-Currently, this library defines `mih_rs::CodeInt` for `u8`, `u16`, `u32`, `u64`, and `u128`. That is, `mih_rs::Index` supports neighbor searches on these binary code types. 
+`Index` can be built from an array of type `CodeInt` that is a primitive integer trait supporting a popcount operation. Currently, this library defines `CodeInt` for `u8`, `u16`, `u32`, `u64`, and `u128`. That is, `Index` supports neighbor searches on these binary code types.
 
 ## Benchmark
 

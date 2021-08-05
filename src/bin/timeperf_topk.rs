@@ -1,5 +1,7 @@
 //! Provides the benchmark of top-K search for MIH and LinearSearch algorithms.
 use mih_rs;
+use rand::distributions::{Distribution, Standard};
+use rand::{thread_rng, Rng};
 use std::any::type_name;
 use std::time;
 
@@ -11,20 +13,20 @@ fn main() {
     println!("Debugging enabled");
 
     {
-        let codes = mih_rs::utils::gen_random_codes::<u32>(SIZES[SIZES.len() - 1]);
-        let qcodes = mih_rs::utils::gen_random_codes::<u32>(100);
+        let codes = gen_random_codes::<u32>(SIZES[SIZES.len() - 1]);
+        let qcodes = gen_random_codes::<u32>(100);
         perf_test(&codes, &qcodes);
     }
     println!("");
     {
-        let codes = mih_rs::utils::gen_random_codes::<u64>(SIZES[SIZES.len() - 1]);
-        let qcodes = mih_rs::utils::gen_random_codes::<u64>(100);
+        let codes = gen_random_codes::<u64>(SIZES[SIZES.len() - 1]);
+        let qcodes = gen_random_codes::<u64>(100);
         perf_test(&codes, &qcodes);
     }
     println!("");
     {
-        let codes = mih_rs::utils::gen_random_codes::<u128>(SIZES[SIZES.len() - 1]);
-        let qcodes = mih_rs::utils::gen_random_codes::<u128>(100);
+        let codes = gen_random_codes::<u128>(SIZES[SIZES.len() - 1]);
+        let qcodes = gen_random_codes::<u128>(100);
         perf_test(&codes, &qcodes);
     }
 }
@@ -66,4 +68,16 @@ fn perf_test<T: mih_rs::CodeInt>(codes: &[T], qcodes: &[T]) {
             elapsed_ms / qcodes.len() as f64
         );
     }
+}
+
+pub fn gen_random_codes<T>(size: usize) -> Vec<T>
+where
+    Standard: Distribution<T>,
+{
+    let mut rng = thread_rng();
+    let mut codes: Vec<T> = Vec::with_capacity(size);
+    for _ in 0..size {
+        codes.push(rng.gen::<T>());
+    }
+    codes
 }
