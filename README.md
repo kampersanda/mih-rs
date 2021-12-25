@@ -7,7 +7,9 @@
 
 Rust implementation of multi-index hashing (MIH) for neighbor searches on binary codes in the Hamming space, described in the paper
 
-> Norouzi, Punjani, and Fleet, **Fast exact search in Hamming space with multi-index hashing**, *IEEE TPAMI*, 36(6):1107– 1119, 2014.
+> Norouzi, Punjani, and Fleet, [Fast exact search in Hamming space with multi-index hashing](https://arxiv.org/abs/1307.2982), *IEEE TPAMI*, 36(6):1107– 1119, 2014.
+
+As the [benchmark result](https://github.com/kampersanda/mih-rs#benchmark) shows, on 10 million 64-bit codes, `mih-rs` can perform top-k searches 19−94 times faster than linear search when k = 1..100.
 
 ## Features
 
