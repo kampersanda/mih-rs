@@ -36,10 +36,12 @@ fn perf_test<T: mih_rs::CodeInt>(codes: Vec<T>, qcodes: Vec<T>) {
         let elapsed_sec = ins.elapsed().as_secs_f64();
         println!("Constr time: {} sec", elapsed_sec);
 
+        let mut searcher = index.topk_searcher();
+
         for &topk in &TOPKS {
             let ins = time::Instant::now();
             for &qcode in &qcodes {
-                let answers = index.topk_search(qcode, topk);
+                let answers = searcher.run(qcode, topk);
                 assert_eq!(answers.len(), topk);
             }
             let elapsed_ms = ins.elapsed().as_millis() as f64;
