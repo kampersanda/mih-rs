@@ -2,7 +2,7 @@ use mih_rs::Index;
 
 fn main() {
     // Database of codes
-    let codes: [u64; 8] = [
+    let codes = vec![
         0b1111111111111111111111011111111111111111111111111011101111111111, // #zeros = 3
         0b1111111111111111111111111111111101111111111011111111111111111111, // #zeros = 2
         0b1111111011011101111111111111111101111111111111111111111111111111, // #zeros = 4
@@ -17,7 +17,7 @@ fn main() {
     let qcode: u64 = 0b1111111111111111111111111111111111111111111111111111111111111111;
 
     // Construct the index
-    let index = Index::new(&codes).unwrap();
+    let index = Index::new(codes).unwrap();
 
     // Find the ids of neighbor codes whose Hamming distances are within 2
     let answers = index.range_search(qcode, 2);

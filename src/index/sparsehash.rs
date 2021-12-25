@@ -1,38 +1,38 @@
-use crate::codeint::popcnt::popcnt_64;
-use std::io::{Error, ErrorKind};
+// use crate::codeint::popcnt::popcnt_64;
+
+use anyhow::{anyhow, Result};
 
 const GROUP_SIZE: usize = 64;
 const COUNT_FLAG: u32 = u32::max_value();
 
 /// Sparse hash table of the internal data structure of MIH.
 pub struct Table {
-    bits: usize,
+    num_bits: usize,
     groups: Vec<Group>,
 }
 
 impl Table {
     /// Make a new table accessable with index in [0..2^bits).
-    pub fn new(bits: usize) -> Result<Table, Error> {
-        if bits == 0 {
-            let e = Error::new(ErrorKind::InvalidInput, "bits needs not to be zero.");
-            return Err(e);
+    pub fn new(num_bits: usize) -> Result<Self> {
+        if num_bits == 0 {
+            return Err(anyhow!("num_bits {} must not be zero", num_bits));
         }
 
-        let size = 1 << bits;
-        let num_groups = if size >= GROUP_SIZE {
-            size / GROUP_SIZE
+        let len = 1 << num_bits;
+        let num_groups = if len >= GROUP_SIZE {
+            len / GROUP_SIZE
         } else {
             1
         };
 
-        Ok(Table {
-            bits: bits,
+        Ok(Self {
+            num_bits,
             groups: vec![Group::default(); num_groups],
         })
     }
 
     pub fn access(&self, idx: usize) -> Option<&[u32]> {
-        debug_assert!(idx < self.get_size());
+        debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].access(gmod)
@@ -40,40 +40,40 @@ impl Table {
 
     #[allow(dead_code)]
     pub fn insert(&mut self, idx: usize, dat: u32) {
-        debug_assert!(idx < self.get_size());
+        debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].insert(gmod, dat);
     }
 
     pub fn count_insert(&mut self, idx: usize) {
-        debug_assert!(idx < self.get_size());
+        debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].count_insert(gmod);
     }
 
     pub fn data_insert(&mut self, idx: usize, dat: u32) {
-        debug_assert!(idx < self.get_size());
+        debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].data_insert(gmod, dat);
     }
 
-    pub fn get_size(&self) -> usize {
-        1 << self.bits
+    pub const fn len(&self) -> usize {
+        1 << self.num_bits
     }
 
     #[allow(dead_code)]
-    pub fn get_bits(&self) -> usize {
-        self.bits
+    pub const fn num_bits(&self) -> usize {
+        self.num_bits
     }
 
     #[allow(dead_code)]
-    pub fn get_array_size(&self, idx: usize) -> usize {
+    pub fn array_len(&self, idx: usize) -> usize {
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
-        self.groups[gpos].get_size(gmod)
+        self.groups[gpos].len(gmod)
     }
 }
 
@@ -178,7 +178,7 @@ impl Group {
         }
     }
 
-    fn get_size(&self, idx: usize) -> usize {
+    fn len(&self, idx: usize) -> usize {
         debug_assert!(idx < GROUP_SIZE);
 
         if !get(self.bitmap, idx) {
@@ -190,8 +190,8 @@ impl Group {
     }
 }
 
-fn popcnt(x: u64) -> usize {
-    popcnt_64(x) as usize
+const fn popcnt(x: u64) -> usize {
+    x.count_ones() as usize
 }
 
 fn popcnt_mask(x: u64, i: usize) -> usize {
@@ -218,12 +218,12 @@ mod tests {
     fn table_works() {
         let mut obj1 = vec![Vec::<u32>::default(); 1 << 10];
         let mut obj2 = Table::new(10).unwrap();
-        assert_eq!(obj2.get_bits(), 10);
-        assert_eq!(obj2.get_size(), obj1.len());
+        assert_eq!(obj2.num_bits(), 10);
+        assert_eq!(obj2.len(), obj1.len());
 
         let mut rng = thread_rng();
         for i in 0..1000 {
-            let idx = rng.gen_range(0..obj2.get_size());
+            let idx = rng.gen_range(0..obj2.len());
             obj1[idx].push(i);
             obj2.insert(idx, i);
         }
@@ -241,14 +241,14 @@ mod tests {
     fn table_works_in_balk_manner() {
         let mut obj1 = vec![Vec::<u32>::default(); 1 << 10];
         let mut obj2 = Table::new(10).unwrap();
-        assert_eq!(obj2.get_bits(), 10);
-        assert_eq!(obj2.get_size(), obj1.len());
+        assert_eq!(obj2.num_bits(), 10);
+        assert_eq!(obj2.len(), obj1.len());
 
         let mut rng = thread_rng();
         let mut idxs = vec![0; 1000];
 
         for i in 0..1000 {
-            idxs[i] = rng.gen_range(0..obj2.get_size());
+            idxs[i] = rng.gen_range(0..obj2.len());
         }
 
         for i in 0..1000 {

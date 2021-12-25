@@ -9,8 +9,8 @@ pub struct SigGenerator64 {
 
 impl SigGenerator64 {
     /// Create a new generator.
-    pub fn new() -> SigGenerator64 {
-        SigGenerator64 {
+    pub const fn new() -> Self {
+        Self {
             sig: 0,
             base: 0,
             radius: 0,
@@ -35,7 +35,7 @@ impl SigGenerator64 {
     }
 
     /// Check if the next signature exists.
-    pub fn has_next(&self) -> bool {
+    pub const fn has_next(&self) -> bool {
         self.bit != self.radius as isize
     }
 
