@@ -1,11 +1,12 @@
-// use crate::codeint::popcnt::popcnt_64;
-
 use anyhow::{anyhow, Result};
+
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 const GROUP_SIZE: usize = 64;
 const COUNT_FLAG: u32 = u32::max_value();
 
 /// Sparse hash table of the internal data structure of MIH.
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Table {
     num_bits: usize,
     groups: Vec<Group>,
@@ -75,9 +76,31 @@ impl Table {
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].len(gmod)
     }
+
+    pub fn serialize_into<W: std::io::Write>(&self, mut writer: W) -> Result<()> {
+        writer.write_u64::<LittleEndian>(self.num_bits as u64)?;
+        writer.write_u64::<LittleEndian>(self.groups.len() as u64)?;
+        for g in &self.groups {
+            g.serialize_into(&mut writer)?;
+        }
+        Ok(())
+    }
+
+    pub fn deserialize_from<R: std::io::Read>(mut reader: R) -> Result<Self> {
+        let num_bits = reader.read_u64::<LittleEndian>()? as usize;
+        let len = reader.read_u64::<LittleEndian>()? as usize;
+        let groups = {
+            let mut groups = Vec::with_capacity(len);
+            for _ in 0..len {
+                groups.push(Group::deserialize_from(&mut reader)?);
+            }
+            groups
+        };
+        Ok(Self { num_bits, groups })
+    }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq, Eq, Debug)]
 struct Group {
     bitmap: u64,
     array: Vec<u32>,
@@ -188,6 +211,28 @@ impl Group {
             (self.array[howmany + 1] - self.array[howmany]) as usize
         }
     }
+
+    fn serialize_into<W: std::io::Write>(&self, mut writer: W) -> Result<()> {
+        writer.write_u64::<LittleEndian>(self.bitmap)?;
+        writer.write_u32::<LittleEndian>(self.array.len() as u32)?;
+        for &x in &self.array {
+            writer.write_u32::<LittleEndian>(x)?;
+        }
+        Ok(())
+    }
+
+    fn deserialize_from<R: std::io::Read>(mut reader: R) -> Result<Self> {
+        let bitmap = reader.read_u64::<LittleEndian>()?;
+        let len = reader.read_u32::<LittleEndian>()? as usize;
+        let array = {
+            let mut array = vec![0; len];
+            for i in 0..len {
+                array[i] = reader.read_u32::<LittleEndian>()?;
+            }
+            array
+        };
+        Ok(Self { bitmap, array })
+    }
 }
 
 const fn popcnt(x: u64) -> usize {
@@ -272,6 +317,23 @@ mod tests {
     }
 
     #[test]
+    fn table_io_works() {
+        let mut rng = thread_rng();
+        let mut table = Table::new(10).unwrap();
+
+        for i in 0..1000 {
+            let idx = rng.gen_range(0..table.len());
+            table.insert(idx, i);
+        }
+
+        let mut data = vec![];
+        table.serialize_into(&mut data).unwrap();
+        let other = Table::deserialize_from(&data[..]).unwrap();
+
+        assert_eq!(table, other);
+    }
+
+    #[test]
     fn group_works() {
         let mut rng = thread_rng();
 
@@ -322,5 +384,21 @@ mod tests {
                 Some(a) => assert_eq!(&org[..], a),
             }
         }
+    }
+
+    #[test]
+    fn group_io_works() {
+        let mut rng = thread_rng();
+        let mut group = Group::default();
+
+        for i in 0..100 {
+            let idx = rng.gen_range(0..GROUP_SIZE);
+            group.insert(idx, i);
+        }
+
+        let mut data = vec![];
+        group.serialize_into(&mut data).unwrap();
+        let other = Group::deserialize_from(&data[..]).unwrap();
+        assert_eq!(group, other);
     }
 }
