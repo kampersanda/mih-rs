@@ -32,6 +32,7 @@ impl Table {
         })
     }
 
+    #[inline(always)]
     pub fn access(&self, idx: usize) -> Option<&[u32]> {
         debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
@@ -40,6 +41,7 @@ impl Table {
     }
 
     #[allow(dead_code)]
+    #[inline(always)]
     pub fn insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
@@ -47,6 +49,7 @@ impl Table {
         self.groups[gpos].insert(gmod, dat);
     }
 
+    #[inline(always)]
     pub fn count_insert(&mut self, idx: usize) {
         debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
@@ -54,6 +57,7 @@ impl Table {
         self.groups[gpos].count_insert(gmod);
     }
 
+    #[inline(always)]
     pub fn data_insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
@@ -61,16 +65,19 @@ impl Table {
         self.groups[gpos].data_insert(gmod, dat);
     }
 
+    #[inline(always)]
     pub const fn len(&self) -> usize {
         1 << self.num_bits
     }
 
     #[allow(dead_code)]
+    #[inline(always)]
     pub const fn num_bits(&self) -> usize {
         self.num_bits
     }
 
     #[allow(dead_code)]
+    #[inline(always)]
     pub fn array_len(&self, idx: usize) -> usize {
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
@@ -107,6 +114,7 @@ struct Group {
 }
 
 impl Group {
+    #[inline(always)]
     fn access(&self, idx: usize) -> Option<&[u32]> {
         debug_assert!(idx < GROUP_SIZE);
 
@@ -123,6 +131,7 @@ impl Group {
         Some(&self.array[bpos..epos])
     }
 
+    #[inline(always)]
     fn insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < GROUP_SIZE);
 
@@ -148,6 +157,7 @@ impl Group {
         }
     }
 
+    #[inline(always)]
     fn count_insert(&mut self, idx: usize) {
         debug_assert!(idx < GROUP_SIZE);
 
@@ -165,6 +175,7 @@ impl Group {
         }
     }
 
+    #[inline(always)]
     fn data_insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < GROUP_SIZE);
         debug_assert!(get(self.bitmap, idx));
@@ -181,6 +192,7 @@ impl Group {
         self.array[howmany + 1] += 1;
     }
 
+    #[inline(always)]
     fn allocate_mem_based_on_counts(&mut self) {
         debug_assert_ne!(self.bitmap, 0);
         debug_assert_eq!(self.array[0], COUNT_FLAG);
@@ -201,6 +213,7 @@ impl Group {
         }
     }
 
+    #[inline(always)]
     fn len(&self, idx: usize) -> usize {
         debug_assert!(idx < GROUP_SIZE);
 
@@ -235,20 +248,24 @@ impl Group {
     }
 }
 
+#[inline(always)]
 const fn popcnt(x: u64) -> usize {
     x.count_ones() as usize
 }
 
+#[inline(always)]
 fn popcnt_mask(x: u64, i: usize) -> usize {
     debug_assert!(i < 64);
     popcnt(x & ((1 << i) - 1))
 }
 
+#[inline(always)]
 fn get(x: u64, i: usize) -> bool {
     debug_assert!(i < 64);
     (x & (1 << i)) != 0
 }
 
+#[inline(always)]
 fn set(x: u64, i: usize) -> u64 {
     debug_assert!(i < 64);
     x | (1 << i)
