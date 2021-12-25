@@ -18,8 +18,8 @@ pub fn range_search_with_buf<T: CodeInt>(
     answers: &mut Vec<u32>,
 ) {
     answers.clear();
-    for i in 0..codes.len() {
-        let dist = hamdist(codes[i], qcode);
+    for (i, &code) in codes.iter().enumerate() {
+        let dist = hamdist(code, qcode);
         if dist <= radius {
             answers.push(i as u32);
         }
