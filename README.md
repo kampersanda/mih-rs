@@ -26,7 +26,7 @@ use mih_rs::Index;
 
 fn main() {
     // Database of codes
-    let codes: [u64; 8] = [
+    let codes: Vec<u64> = vec![
         0b1111111111111111111111011111111111111111111111111011101111111111, // #zeros = 3
         0b1111111111111111111111111111111101111111111011111111111111111111, // #zeros = 2
         0b1111111011011101111111111111111101111111111111111111111111111111, // #zeros = 4
@@ -38,28 +38,32 @@ fn main() {
     ];
 
     // Query code
-    let qcode: u64 = 0b1111111111111111111111111111111111111111111111111111111111111111;
+    let qcode: u64 = 0b1111111111111111111111111111111111111111111111111111111111111111; // #zeros = 0
 
     // Construct the index
-    let index = Index::new(&codes).unwrap();
+    let index = Index::new(codes).unwrap();
 
     // Find the ids of neighbor codes whose Hamming distances are within 2
-    let answers = index.range_search(qcode, 2);
-    println!("{:?}", answers); // [1, 4, 6]
+    let mut searcher = index.range_searcher();
+    let answers = searcher.run(qcode, 2);
+    assert_eq!(answers, vec![1, 4, 6]);
 
     // Find the ids of the top-4 nearest neighbor codes
-    let answers = index.topk_search(qcode, 4);
-    println!("{:?}", answers); // [4, 1, 6, 0]
+    let mut searcher = index.topk_searcher();
+    let answers = searcher.run(qcode, 4);
+    assert_eq!(answers, vec![4, 1, 6, 0]);
 }
 ```
 
 ## Binary code types
 
-`Index` can be built from an array of type `CodeInt` that is a primitive integer trait supporting a popcount operation. Currently, this library defines `CodeInt` for `u8`, `u16`, `u32`, `u64`, and `u128`. That is, `Index` supports neighbor searches on these binary code types.
+`mih_rs::Index` can be built from a vector of type `mih_rs::CodeInt`
+that is a primitive integer trait supporting a popcount operation.
+Currently, this library defines `mih_rs::CodeInt` for `u8`, `u16`, `u32`, and `u64`.
 
 ## Benchmark
 
-`timeperf_topk.rs` offers the benchmark of top-K search for MIH and LinearSearch algorithms on binary code types `u32`, `u64`, and `u128`.
+`timeperf_topk.rs` offers the benchmark of top-K search for MIH and LinearSearch algorithms on binary code types `u32` and `u64`.
 
 The following table shows the result of average search times in milliseconds per query, in the settings:
 
@@ -85,15 +89,6 @@ The following table shows the result of average search times in milliseconds per
 | MIH (K=10)   |     0.20 |      0.76 |        3.72 |         14.8 |
 | MIH (K=100)  |     0.41 |      1.53 |        7.02 |         33.2 |
 | LinearSearch |     0.36 |      4.36 |       52.28 |        629.1 |
-
-### Result for `u128`
-
-| Algorithm    | N=10,000 | N=100,000 | N=1,000,000 | N=10,000,000 |
-| ------------ | -------: | --------: | ----------: | -----------: |
-| MIH (K=1)    |     0.57 |      3.24 |        23.7 |          162 |
-| MIH (K=10)   |     0.83 |      4.95 |        42.6 |          323 |
-| MIH (K=100)  |     1.10 |      7.71 |        69.5 |          416 |
-| LinearSearch |     0.48 |      5.47 |        62.3 |          698 |
 
 ## Licensing
 
