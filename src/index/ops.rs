@@ -1,5 +1,7 @@
 use anyhow::{anyhow, Result};
 
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+
 use crate::{hamdist, index::*, Index};
 
 impl<T: CodeInt> Index<T> {
@@ -209,6 +211,72 @@ impl<T: CodeInt> Index<T> {
     /// Gets the number of defined blocks in multi-index.
     pub fn num_blocks(&self) -> usize {
         self.num_blocks
+    }
+
+    /// Serializes the index into the file.
+    pub fn serialize_into<W: std::io::Write>(&self, mut writer: W) -> Result<()> {
+        writer.write_u64::<LittleEndian>(self.num_blocks as u64)?;
+        writer.write_u64::<LittleEndian>(self.codes.len() as u64)?;
+        for x in &self.codes {
+            x.serialize_into(&mut writer)?;
+        }
+        writer.write_u64::<LittleEndian>(self.tables.len() as u64)?;
+        for x in &self.tables {
+            x.serialize_into(&mut writer)?;
+        }
+        writer.write_u64::<LittleEndian>(self.masks.len() as u64)?;
+        for x in &self.masks {
+            x.serialize_into(&mut writer)?;
+        }
+        writer.write_u64::<LittleEndian>(self.begs.len() as u64)?;
+        for &x in &self.begs {
+            writer.write_u64::<LittleEndian>(x as u64)?;
+        }
+        Ok(())
+    }
+
+    /// Deserializes the index from the file.
+    pub fn deserialize_from<R: std::io::Read>(mut reader: R) -> Result<Self> {
+        let num_blocks = reader.read_u64::<LittleEndian>()? as usize;
+        let codes = {
+            let len = reader.read_u64::<LittleEndian>()? as usize;
+            let mut codes = Vec::with_capacity(len);
+            for _ in 0..len {
+                codes.push(T::deserialize_from(&mut reader)?);
+            }
+            codes
+        };
+        let tables = {
+            let len = reader.read_u64::<LittleEndian>()? as usize;
+            let mut tables = Vec::with_capacity(len);
+            for _ in 0..len {
+                tables.push(sparsehash::Table::deserialize_from(&mut reader)?);
+            }
+            tables
+        };
+        let masks = {
+            let len = reader.read_u64::<LittleEndian>()? as usize;
+            let mut masks = Vec::with_capacity(len);
+            for _ in 0..len {
+                masks.push(T::deserialize_from(&mut reader)?);
+            }
+            masks
+        };
+        let begs = {
+            let len = reader.read_u64::<LittleEndian>()? as usize;
+            let mut begs = Vec::with_capacity(len);
+            for _ in 0..len {
+                begs.push(reader.read_u64::<LittleEndian>()? as usize);
+            }
+            begs
+        };
+        Ok(Self {
+            num_blocks,
+            codes,
+            tables,
+            masks,
+            begs,
+        })
     }
 
     fn get_dim(&self, b: usize) -> usize {
@@ -454,5 +522,53 @@ mod tests {
     fn topk_search_u64_works() {
         let codes = gen_random_codes::<u64>(10000);
         do_topk_search(codes);
+    }
+
+    #[test]
+    fn serialize_u8_works() {
+        let codes = gen_random_codes::<u8>(10000);
+        let index = Index::new(codes).unwrap();
+
+        let mut data = vec![];
+        index.serialize_into(&mut data).unwrap();
+        let other = Index::<u8>::deserialize_from(&data[..]).unwrap();
+
+        assert_eq!(index, other);
+    }
+
+    #[test]
+    fn serialize_u16_works() {
+        let codes = gen_random_codes::<u16>(10000);
+        let index = Index::new(codes).unwrap();
+
+        let mut data = vec![];
+        index.serialize_into(&mut data).unwrap();
+        let other = Index::<u16>::deserialize_from(&data[..]).unwrap();
+
+        assert_eq!(index, other);
+    }
+
+    #[test]
+    fn serialize_u32_works() {
+        let codes = gen_random_codes::<u32>(10000);
+        let index = Index::new(codes).unwrap();
+
+        let mut data = vec![];
+        index.serialize_into(&mut data).unwrap();
+        let other = Index::<u32>::deserialize_from(&data[..]).unwrap();
+
+        assert_eq!(index, other);
+    }
+
+    #[test]
+    fn serialize_u64_works() {
+        let codes = gen_random_codes::<u64>(10000);
+        let index = Index::new(codes).unwrap();
+
+        let mut data = vec![];
+        index.serialize_into(&mut data).unwrap();
+        let other = Index::<u64>::deserialize_from(&data[..]).unwrap();
+
+        assert_eq!(index, other);
     }
 }

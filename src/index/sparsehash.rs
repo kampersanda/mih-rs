@@ -1,11 +1,12 @@
-// use crate::codeint::popcnt::popcnt_64;
-
 use anyhow::{anyhow, Result};
+
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 
 const GROUP_SIZE: usize = 64;
 const COUNT_FLAG: u32 = u32::max_value();
 
 /// Sparse hash table of the internal data structure of MIH.
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Table {
     num_bits: usize,
     groups: Vec<Group>,
@@ -31,6 +32,7 @@ impl Table {
         })
     }
 
+    #[inline(always)]
     pub fn access(&self, idx: usize) -> Option<&[u32]> {
         debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
@@ -39,6 +41,7 @@ impl Table {
     }
 
     #[allow(dead_code)]
+    #[inline(always)]
     pub fn insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
@@ -46,6 +49,7 @@ impl Table {
         self.groups[gpos].insert(gmod, dat);
     }
 
+    #[inline(always)]
     pub fn count_insert(&mut self, idx: usize) {
         debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
@@ -53,6 +57,7 @@ impl Table {
         self.groups[gpos].count_insert(gmod);
     }
 
+    #[inline(always)]
     pub fn data_insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < self.len());
         let gpos = idx / GROUP_SIZE;
@@ -60,30 +65,56 @@ impl Table {
         self.groups[gpos].data_insert(gmod, dat);
     }
 
+    #[inline(always)]
     pub const fn len(&self) -> usize {
         1 << self.num_bits
     }
 
     #[allow(dead_code)]
+    #[inline(always)]
     pub const fn num_bits(&self) -> usize {
         self.num_bits
     }
 
     #[allow(dead_code)]
+    #[inline(always)]
     pub fn array_len(&self, idx: usize) -> usize {
         let gpos = idx / GROUP_SIZE;
         let gmod = idx % GROUP_SIZE;
         self.groups[gpos].len(gmod)
     }
+
+    pub fn serialize_into<W: std::io::Write>(&self, mut writer: W) -> Result<()> {
+        writer.write_u64::<LittleEndian>(self.num_bits as u64)?;
+        writer.write_u64::<LittleEndian>(self.groups.len() as u64)?;
+        for g in &self.groups {
+            g.serialize_into(&mut writer)?;
+        }
+        Ok(())
+    }
+
+    pub fn deserialize_from<R: std::io::Read>(mut reader: R) -> Result<Self> {
+        let num_bits = reader.read_u64::<LittleEndian>()? as usize;
+        let len = reader.read_u64::<LittleEndian>()? as usize;
+        let groups = {
+            let mut groups = Vec::with_capacity(len);
+            for _ in 0..len {
+                groups.push(Group::deserialize_from(&mut reader)?);
+            }
+            groups
+        };
+        Ok(Self { num_bits, groups })
+    }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, PartialEq, Eq, Debug)]
 struct Group {
     bitmap: u64,
     array: Vec<u32>,
 }
 
 impl Group {
+    #[inline(always)]
     fn access(&self, idx: usize) -> Option<&[u32]> {
         debug_assert!(idx < GROUP_SIZE);
 
@@ -100,6 +131,7 @@ impl Group {
         Some(&self.array[bpos..epos])
     }
 
+    #[inline(always)]
     fn insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < GROUP_SIZE);
 
@@ -125,6 +157,7 @@ impl Group {
         }
     }
 
+    #[inline(always)]
     fn count_insert(&mut self, idx: usize) {
         debug_assert!(idx < GROUP_SIZE);
 
@@ -142,6 +175,7 @@ impl Group {
         }
     }
 
+    #[inline(always)]
     fn data_insert(&mut self, idx: usize, dat: u32) {
         debug_assert!(idx < GROUP_SIZE);
         debug_assert!(get(self.bitmap, idx));
@@ -158,6 +192,7 @@ impl Group {
         self.array[howmany + 1] += 1;
     }
 
+    #[inline(always)]
     fn allocate_mem_based_on_counts(&mut self) {
         debug_assert_ne!(self.bitmap, 0);
         debug_assert_eq!(self.array[0], COUNT_FLAG);
@@ -178,6 +213,7 @@ impl Group {
         }
     }
 
+    #[inline(always)]
     fn len(&self, idx: usize) -> usize {
         debug_assert!(idx < GROUP_SIZE);
 
@@ -188,22 +224,48 @@ impl Group {
             (self.array[howmany + 1] - self.array[howmany]) as usize
         }
     }
+
+    fn serialize_into<W: std::io::Write>(&self, mut writer: W) -> Result<()> {
+        writer.write_u64::<LittleEndian>(self.bitmap)?;
+        writer.write_u32::<LittleEndian>(self.array.len() as u32)?;
+        for &x in &self.array {
+            writer.write_u32::<LittleEndian>(x)?;
+        }
+        Ok(())
+    }
+
+    fn deserialize_from<R: std::io::Read>(mut reader: R) -> Result<Self> {
+        let bitmap = reader.read_u64::<LittleEndian>()?;
+        let len = reader.read_u32::<LittleEndian>()? as usize;
+        let array = {
+            let mut array = Vec::with_capacity(len);
+            for _ in 0..len {
+                array.push(reader.read_u32::<LittleEndian>()?);
+            }
+            array
+        };
+        Ok(Self { bitmap, array })
+    }
 }
 
+#[inline(always)]
 const fn popcnt(x: u64) -> usize {
     x.count_ones() as usize
 }
 
+#[inline(always)]
 fn popcnt_mask(x: u64, i: usize) -> usize {
     debug_assert!(i < 64);
     popcnt(x & ((1 << i) - 1))
 }
 
+#[inline(always)]
 fn get(x: u64, i: usize) -> bool {
     debug_assert!(i < 64);
     (x & (1 << i)) != 0
 }
 
+#[inline(always)]
 fn set(x: u64, i: usize) -> u64 {
     debug_assert!(i < 64);
     x | (1 << i)
@@ -272,6 +334,23 @@ mod tests {
     }
 
     #[test]
+    fn table_io_works() {
+        let mut rng = thread_rng();
+        let mut table = Table::new(10).unwrap();
+
+        for i in 0..1000 {
+            let idx = rng.gen_range(0..table.len());
+            table.insert(idx, i);
+        }
+
+        let mut data = vec![];
+        table.serialize_into(&mut data).unwrap();
+        let other = Table::deserialize_from(&data[..]).unwrap();
+
+        assert_eq!(table, other);
+    }
+
+    #[test]
     fn group_works() {
         let mut rng = thread_rng();
 
@@ -322,5 +401,21 @@ mod tests {
                 Some(a) => assert_eq!(&org[..], a),
             }
         }
+    }
+
+    #[test]
+    fn group_io_works() {
+        let mut rng = thread_rng();
+        let mut group = Group::default();
+
+        for i in 0..100 {
+            let idx = rng.gen_range(0..GROUP_SIZE);
+            group.insert(idx, i);
+        }
+
+        let mut data = vec![];
+        group.serialize_into(&mut data).unwrap();
+        let other = Group::deserialize_from(&data[..]).unwrap();
+        assert_eq!(group, other);
     }
 }

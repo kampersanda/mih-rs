@@ -52,6 +52,7 @@ use crate::CodeInt;
 /// let answers = searcher.run(qcode, 4);
 /// assert_eq!(answers, vec![4, 1, 6, 0]);
 /// ```
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Index<T: CodeInt> {
     num_blocks: usize,
     codes: Vec<T>,
