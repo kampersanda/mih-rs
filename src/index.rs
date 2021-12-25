@@ -51,6 +51,12 @@ use crate::CodeInt;
 /// let mut searcher = index.topk_searcher();
 /// let answers = searcher.run(qcode, 4);
 /// assert_eq!(answers, vec![4, 1, 6, 0]);
+///
+/// // Serialization/Deserialization
+/// let mut data = vec![];
+/// index.serialize_into(&mut data).unwrap();
+/// let other = Index::<u64>::deserialize_from(&data[..]).unwrap();
+/// assert_eq!(index, other);
 /// ```
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct Index<T: CodeInt> {
