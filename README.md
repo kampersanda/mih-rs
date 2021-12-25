@@ -17,7 +17,7 @@ As the [benchmark result](https://github.com/kampersanda/mih-rs#benchmark) shows
   - *Range search* finds neighbor codes whose Hamming distances to a given code are within a radius.
   - *Top-K search* finds the top-K codes that are closest to a given code.
 
-- **Fast and memory-efficient implementation:** The data structure is built on sparse hash tables, following the original implementation.
+- **Fast and memory-efficient implementation:** The data structure is built on sparse hash tables, following the [original implementation](https://github.com/norouzi/mih).
 
 - **Parameter free:** mih-rs automatically sets an optimal parameter of MIH depending on a given database (although you can also set this manually).
 

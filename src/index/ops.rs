@@ -6,10 +6,8 @@ use crate::{hamdist, index::*, Index};
 
 impl<T: CodeInt> Index<T> {
     /// Builds an index from binary codes.
-    ///
     /// The number of blocks for multi-index is set to the optimal one
     /// estimated from the number of input codes.
-    ///
     /// The input database `codes` is stolen, but the reference can be gotten with [`Index::codes()`].
     ///
     /// # Arguments
@@ -35,7 +33,6 @@ impl<T: CodeInt> Index<T> {
     }
 
     /// Builds an index from binary codes with a manually specified number of blocks.
-    ///
     /// The input database `codes` is stolen, but the reference can be gotten with [`Index::codes()`].
     ///
     /// # Arguments

@@ -2,7 +2,7 @@
 //!
 //! Rust implementation of multi-index hashing (MIH) for neighbor searches on binary codes in the Hamming space, described in the paper
 //!
-//! > Norouzi, Punjani, and Fleet, **Fast exact search in Hamming space with multi-index hashing**, *IEEE TPAMI*, 36(6):1107– 1119, 2014.
+//! > Norouzi, Punjani, and Fleet, [Fast exact search in Hamming space with multi-index hashing](https://arxiv.org/abs/1307.2982), *IEEE TPAMI*, 36(6):1107– 1119, 2014.
 //!
 //! ## Features
 //!
@@ -10,7 +10,7 @@
 //!   - *Range search* finds neighbor codes whose Hamming distances to a given code are within a radius.
 //!   - *Top-K search* finds the top-K codes that are closest to a given code.
 //!
-//! - **Fast and memory-efficient implementation:** The data structure is built on sparse hash tables, following the original implementation.
+//! - **Fast and memory-efficient implementation:** The data structure is built on sparse hash tables, following the [original implementation](https://github.com/norouzi/mih).
 //!
 //! - **Parameter free:** mih-rs automatically sets an optimal parameter of MIH depending on a given database (although you can also set this manually).
 //!
