@@ -60,12 +60,14 @@ pub struct Index<T: CodeInt> {
     begs: Vec<usize>,
 }
 
+/// Range searcher created by [`Index::range_searcher()`].
 pub struct RangeSearcher<'a, T: CodeInt> {
     index: &'a Index<T>,
     siggen: siggen::SigGenerator64,
     answers: Vec<u32>,
 }
 
+/// Top-K searcher created by [`Index::range_searcher()`].
 pub struct TopkSearcher<'a, T: CodeInt> {
     index: &'a Index<T>,
     siggen: siggen::SigGenerator64,
