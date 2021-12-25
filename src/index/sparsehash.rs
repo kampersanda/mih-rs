@@ -238,9 +238,9 @@ impl Group {
         let bitmap = reader.read_u64::<LittleEndian>()?;
         let len = reader.read_u32::<LittleEndian>()? as usize;
         let array = {
-            let mut array = vec![0; len];
-            for i in 0..len {
-                array[i] = reader.read_u32::<LittleEndian>()?;
+            let mut array = Vec::with_capacity(len);
+            for _ in 0..len {
+                array.push(reader.read_u32::<LittleEndian>()?);
             }
             array
         };
