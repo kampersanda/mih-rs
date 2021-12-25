@@ -52,7 +52,7 @@
 //! // Serialization/Deserialization
 //! let mut data = vec![];
 //! index.serialize_into(&mut data).unwrap();
-//! let other = Index::<u32>::deserialize_from(&data[..]).unwrap();
+//! let other = Index::<u64>::deserialize_from(&data[..]).unwrap();
 //! assert_eq!(index, other);
 //! ```
 //!
