@@ -206,7 +206,7 @@ impl<T: CodeInt> Index<T> {
     }
 
     /// Gets the number of defined blocks in multi-index.
-    pub fn num_blocks(&self) -> usize {
+    pub const fn num_blocks(&self) -> usize {
         self.num_blocks
     }
 
@@ -349,7 +349,7 @@ where
                     let sig = self.siggen.next();
                     if let Some(a) = table.access(sig as usize) {
                         for v in a {
-                            self.answers.push(*v as u32);
+                            self.answers.push(*v);
                         }
                     }
                 }
