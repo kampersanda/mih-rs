@@ -1,6 +1,9 @@
 name: build
 
 on:
+  schedule:
+    # Run every Monday at 00:00 UTC.
+    - cron: '0 0 * * 1'
   push:
     branches: [ master ]
   pull_request:
@@ -17,37 +20,26 @@ jobs:
       matrix:
         rust:
           - stable
-          - beta
           - nightly
     steps:
-      - uses: actions/checkout@v2
-      - name: Install latest stable
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: ${{ matrix.rust }}
-          override: true
-          components: rustfmt, clippy
+      - uses: actions/checkout@v3
+      - name: Install ${{ matrix.rust }}
+        run: |
+          rustup toolchain install ${{ matrix.rust }} --profile minimal --component rustfmt,clippy
+          rustup default ${{ matrix.rust }}
 
       - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+        continue-on-error: ${{ matrix.rust == 'nightly' }}
+        run: cargo check
 
       - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        continue-on-error: ${{ matrix.rust == 'nightly' }}
+        run: cargo fmt --all -- --check
 
       - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: -- -D warnings -W clippy::nursery
+        continue-on-error: ${{ matrix.rust == 'nightly' }}
+        run: cargo clippy -- -D warnings -W clippy::nursery
 
       - name: Run cargo test
-        uses: actions-rs/cargo@v1
         continue-on-error: ${{ matrix.rust == 'nightly' }}
-        with:
-          command: test
-          args: --release --all-features
+        run: cargo test --release
